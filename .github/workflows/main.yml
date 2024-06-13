@@ -1,0 +1,67 @@
+name: Node.js CI/CD
+
+on:
+  release:
+    types: [created]
+  push:
+    branches: [main]
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      - run: npm ci
+      - name: buat docker image
+        run: docker build -t farhanrizqi/final_project_pso .
+      - name: Login docker hub
+        run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+      - name: publish image to docker hub
+        run: docker push farhanrizqi/final_project_pso:latest
+
+  tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: 22.2.0
+      - name: install nodejs dll
+        run: npm install
+      - name: install mocha
+        run: npm install --save-dev mocha
+      - name: Verify Mocha installation
+        run: npm mocha --version
+      - name: Fix permissions for Mocha
+        run: |
+          chmod 0777 ./node_modules/.bin/mocha
+          chmod 0777 ./node_modules/.bin/_mocha
+      - name: Execute Mocha
+        run: |
+          chmod 0555 ./node_modules/.bin/mocha
+          chmod 0555 ./node_modules/.bin/_mocha
+      - name: Run tests
+        run: npm test
+  
+  deploy:
+    needs: [build, tests]
+    runs-on: self-hosted
+    steps:
+      - name: Pull image dockerhub
+        run: docker pull farhanrizqi/final_project_pso:latest
+      - name: Delete old container
+        run: docker rm -f final_project_pso-container
+      - name: run docker container
+        run: docker run -d -p 3000:3000 --name final_project_pso-container farhanrizqi/final_project_pso
+  
