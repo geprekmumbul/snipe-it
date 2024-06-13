@@ -36,4 +36,4 @@ jobs:
         run: docker rm -f snipeit
       - name: run docker container
         run: docker run -d -p 9000:9000 --name snipeit geprekmumbul/snipe-it
-  
+        
